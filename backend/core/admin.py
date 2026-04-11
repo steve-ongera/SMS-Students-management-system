@@ -48,12 +48,12 @@ class ExamResultInline(admin.TabularInline):
 
 class UserAdmin(BaseUserAdmin):
     inlines = (AdminProfileInline,)
-    list_display   = ('username', 'email', 'first_name', 'last_name', 'is_staff', 'is_active', 'date_joined')
-    list_filter    = ('is_staff', 'is_superuser', 'is_active')
-    search_fields  = ('username', 'email', 'first_name', 'last_name')
-    ordering       = ('-date_joined',)
+    list_display  = ('username', 'email', 'first_name', 'last_name', 'is_staff', 'is_active', 'date_joined')
+    list_filter   = ('is_staff', 'is_superuser', 'is_active')
+    search_fields = ('username', 'email', 'first_name', 'last_name')
+    ordering      = ('-date_joined',)
 
-# Re-register User with extended admin
+
 admin.site.unregister(User)
 admin.site.register(User, UserAdmin)
 
@@ -64,13 +64,13 @@ admin.site.register(User, UserAdmin)
 
 @admin.register(Programme)
 class ProgrammeAdmin(admin.ModelAdmin):
-    list_display   = ('code', 'name', 'department', 'duration_display', 'student_count', 'course_count', 'is_active', 'created_at')
-    list_filter    = ('is_active', 'department', 'duration')
-    search_fields  = ('code', 'name', 'department')
-    ordering       = ('name',)
-    readonly_fields = ('created_at', 'updated_at', 'student_count', 'course_count')
-    list_editable  = ('is_active',)
-    inlines        = [CourseInline]
+    list_display  = ('code', 'name', 'department', 'duration_display', 'student_count', 'course_count', 'is_active', 'created_at')
+    list_filter   = ('is_active', 'department', 'duration')
+    search_fields = ('code', 'name', 'department')
+    ordering      = ('name',)
+    readonly_fields = ('created_at', 'updated_at')
+    list_editable = ('is_active',)
+    inlines       = [CourseInline]
 
     fieldsets = (
         ('Basic Information', {
@@ -79,9 +79,6 @@ class ProgrammeAdmin(admin.ModelAdmin):
         ('Description', {
             'fields': ('description',),
             'classes': ('collapse',),
-        }),
-        ('Statistics', {
-            'fields': ('student_count', 'course_count'),
         }),
         ('Timestamps', {
             'fields': ('created_at', 'updated_at'),
@@ -93,7 +90,7 @@ class ProgrammeAdmin(admin.ModelAdmin):
     def duration_display(self, obj):
         return f"{obj.duration} Year{'s' if obj.duration > 1 else ''}"
 
-    @admin.display(description='Students')
+    @admin.display(description='Active Students')
     def student_count(self, obj):
         count = obj.students.filter(status='active').count()
         return format_html('<b>{}</b>', count)
@@ -109,12 +106,12 @@ class ProgrammeAdmin(admin.ModelAdmin):
 
 @admin.register(Course)
 class CourseAdmin(admin.ModelAdmin):
-    list_display   = ('code', 'name', 'programme_link', 'level', 'credit_hrs', 'enrolled_count', 'is_active')
-    list_filter    = ('level', 'is_active', 'programme')
-    search_fields  = ('code', 'name', 'programme__name')
-    ordering       = ('level', 'code')
-    readonly_fields = ('created_at', 'enrolled_count')
-    list_editable  = ('is_active',)
+    list_display  = ('code', 'name', 'programme_link', 'level', 'credit_hrs', 'enrolled_count', 'is_active')
+    list_filter   = ('level', 'is_active', 'programme')
+    search_fields = ('code', 'name', 'programme__name')
+    ordering      = ('level', 'code')
+    readonly_fields = ('created_at',)
+    list_editable = ('is_active',)
     list_select_related = ('programme',)
 
     fieldsets = (
@@ -149,15 +146,15 @@ class CourseAdmin(admin.ModelAdmin):
 
 @admin.register(Student)
 class StudentAdmin(admin.ModelAdmin):
-    list_display   = ('student_id', 'full_name_display', 'email', 'programme_code', 'level', 'gender', 'status_badge', 'enrolled_date')
-    list_filter    = ('status', 'gender', 'level', 'programme')
-    search_fields  = ('student_id', 'first_name', 'last_name', 'email', 'phone')
-    ordering       = ('last_name', 'first_name')
-    readonly_fields = ('enrolled_date', 'created_at', 'updated_at', 'full_name_display')
+    list_display  = ('student_id', 'full_name_display', 'email', 'programme_code', 'level', 'gender', 'status_badge', 'enrolled_date')
+    list_filter   = ('status', 'gender', 'level', 'programme')
+    search_fields = ('student_id', 'first_name', 'last_name', 'email', 'phone')
+    ordering      = ('last_name', 'first_name')
+    readonly_fields = ('enrolled_date', 'created_at', 'updated_at')
     list_select_related = ('programme',)
-    list_per_page  = 25
+    list_per_page = 25
     date_hierarchy = 'enrolled_date'
-    inlines        = [EnrollmentInline]
+    inlines       = [EnrollmentInline]
 
     fieldsets = (
         ('Identity', {
@@ -178,7 +175,7 @@ class StudentAdmin(admin.ModelAdmin):
 
     actions = ['mark_active', 'mark_deferred', 'mark_graduated', 'mark_withdrawn']
 
-    @admin.display(description='Student Name')
+    @admin.display(description='Full Name')
     def full_name_display(self, obj):
         return obj.full_name
 
@@ -194,31 +191,26 @@ class StudentAdmin(admin.ModelAdmin):
             'graduated': 'blue',
             'withdrawn': 'red',
         }
-        color = colors.get(obj.status, 'grey')
         return format_html(
             '<span style="color:{}; font-weight:bold;">{}</span>',
-            color, obj.get_status_display()
+            colors.get(obj.status, 'grey'), obj.get_status_display()
         )
 
     @admin.action(description='Mark selected students as Active')
     def mark_active(self, request, queryset):
-        updated = queryset.update(status='active')
-        self.message_user(request, f'{updated} student(s) marked as Active.')
+        self.message_user(request, f'{queryset.update(status="active")} student(s) marked Active.')
 
     @admin.action(description='Mark selected students as Deferred')
     def mark_deferred(self, request, queryset):
-        updated = queryset.update(status='deferred')
-        self.message_user(request, f'{updated} student(s) marked as Deferred.')
+        self.message_user(request, f'{queryset.update(status="deferred")} student(s) marked Deferred.')
 
     @admin.action(description='Mark selected students as Graduated')
     def mark_graduated(self, request, queryset):
-        updated = queryset.update(status='graduated')
-        self.message_user(request, f'{updated} student(s) marked as Graduated.')
+        self.message_user(request, f'{queryset.update(status="graduated")} student(s) marked Graduated.')
 
     @admin.action(description='Mark selected students as Withdrawn')
     def mark_withdrawn(self, request, queryset):
-        updated = queryset.update(status='withdrawn')
-        self.message_user(request, f'{updated} student(s) marked as Withdrawn.')
+        self.message_user(request, f'{queryset.update(status="withdrawn")} student(s) marked Withdrawn.')
 
 
 # ══════════════════════════════════════════════════════════════
@@ -227,13 +219,13 @@ class StudentAdmin(admin.ModelAdmin):
 
 @admin.register(Enrollment)
 class EnrollmentAdmin(admin.ModelAdmin):
-    list_display   = ('student_id_display', 'student_name', 'course_code', 'course_name', 'semester', 'enrolled_at')
-    list_filter    = ('semester', 'course__programme')
-    search_fields  = ('student__student_id', 'student__first_name', 'student__last_name', 'course__code', 'course__name')
-    ordering       = ('-enrolled_at',)
+    list_display  = ('student_id_display', 'student_name', 'course_code', 'course_name', 'semester', 'enrolled_at')
+    list_filter   = ('semester', 'course__programme')
+    search_fields = ('student__student_id', 'student__first_name', 'student__last_name', 'course__code', 'course__name')
+    ordering      = ('-enrolled_at',)
     readonly_fields = ('enrolled_at',)
     list_select_related = ('student', 'course', 'course__programme')
-    list_per_page  = 30
+    list_per_page = 30
 
     @admin.display(description='Student ID')
     def student_id_display(self, obj):
@@ -243,7 +235,7 @@ class EnrollmentAdmin(admin.ModelAdmin):
     def student_name(self, obj):
         return obj.student.full_name
 
-    @admin.display(description='Course Code')
+    @admin.display(description='Code')
     def course_code(self, obj):
         return obj.course.code
 
@@ -258,15 +250,20 @@ class EnrollmentAdmin(admin.ModelAdmin):
 
 @admin.register(Exam)
 class ExamAdmin(admin.ModelAdmin):
-    list_display   = ('title', 'course_code', 'exam_type', 'date', 'start_time', 'duration_display', 'venue', 'total_marks', 'status_badge', 'results_count')
-    list_filter    = ('exam_type', 'status', 'course__programme', 'date')
-    search_fields  = ('title', 'course__code', 'course__name', 'venue')
-    ordering       = ('-date', 'start_time')
-    readonly_fields = ('created_at', 'updated_at', 'results_count')
-    list_editable  = ('status',)
+    # NOTE: 'status' must appear in list_display before it can appear in list_editable
+    list_display  = (
+        'title', 'course_code', 'exam_type', 'date',
+        'start_time', 'duration_display', 'venue',
+        'total_marks', 'status', 'results_count',
+    )
+    list_filter   = ('exam_type', 'status', 'course__programme', 'date')
+    search_fields = ('title', 'course__code', 'course__name', 'venue')
+    ordering      = ('-date', 'start_time')
+    readonly_fields = ('created_at', 'updated_at')
+    list_editable = ('status',)
     date_hierarchy = 'date'
     list_select_related = ('course', 'course__programme')
-    inlines        = [ExamResultInline]
+    inlines       = [ExamResultInline]
 
     fieldsets = (
         ('Exam Details', {
@@ -297,19 +294,6 @@ class ExamAdmin(admin.ModelAdmin):
         h, m = divmod(obj.duration, 60)
         return f"{h}h {m}m" if h else f"{m}m"
 
-    @admin.display(description='Status')
-    def status_badge(self, obj):
-        colors = {
-            'scheduled': 'blue',
-            'ongoing':   'orange',
-            'completed': 'green',
-            'cancelled': 'red',
-        }
-        return format_html(
-            '<span style="color:{}; font-weight:bold;">{}</span>',
-            colors.get(obj.status, 'grey'), obj.get_status_display()
-        )
-
     @admin.display(description='Results')
     def results_count(self, obj):
         return obj.results.count()
@@ -321,13 +305,13 @@ class ExamAdmin(admin.ModelAdmin):
 
 @admin.register(ExamResult)
 class ExamResultAdmin(admin.ModelAdmin):
-    list_display   = ('student_id_display', 'student_name', 'exam_title', 'course_code', 'marks', 'grade_badge', 'recorded_at')
-    list_filter    = ('grade', 'exam__exam_type', 'exam__course__programme')
-    search_fields  = ('student__student_id', 'student__first_name', 'student__last_name', 'exam__title')
-    ordering       = ('-recorded_at',)
+    list_display  = ('student_id_display', 'student_name', 'exam_title', 'course_code', 'marks', 'grade_badge', 'recorded_at')
+    list_filter   = ('grade', 'exam__exam_type', 'exam__course__programme')
+    search_fields = ('student__student_id', 'student__first_name', 'student__last_name', 'exam__title')
+    ordering      = ('-recorded_at',)
     readonly_fields = ('grade', 'recorded_at', 'updated_at')
     list_select_related = ('student', 'exam', 'exam__course')
-    list_per_page  = 30
+    list_per_page = 30
 
     fieldsets = (
         ('Result', {
@@ -358,12 +342,8 @@ class ExamResultAdmin(admin.ModelAdmin):
     @admin.display(description='Grade')
     def grade_badge(self, obj):
         colors = {
-            'A':   'green',
-            'B':   'teal',
-            'C':   'blue',
-            'D':   'orange',
-            'E':   'red',
-            'ABS': 'grey',
+            'A': 'green', 'B': 'teal', 'C': 'blue',
+            'D': 'orange', 'E': 'red', 'ABS': 'grey',
         }
         return format_html(
             '<span style="color:{}; font-weight:bold;">{}</span>',
@@ -372,7 +352,7 @@ class ExamResultAdmin(admin.ModelAdmin):
 
 
 # ══════════════════════════════════════════════════════════════
-#  ADMIN PROFILE (standalone — mainly for debugging)
+#  ADMIN PROFILE
 # ══════════════════════════════════════════════════════════════
 
 @admin.register(AdminProfile)
@@ -384,9 +364,9 @@ class AdminProfileAdmin(admin.ModelAdmin):
 
 
 # ══════════════════════════════════════════════════════════════
-#  ADMIN SITE CUSTOMISATION
+#  SITE BRANDING
 # ══════════════════════════════════════════════════════════════
 
-admin.site.site_header  = 'EduCore SMS — Administration'
-admin.site.site_title   = 'EduCore Admin'
-admin.site.index_title  = 'Student Management System'
+admin.site.site_header = 'EduCore SMS — Administration'
+admin.site.site_title  = 'EduCore Admin'
+admin.site.index_title = 'Student Management System'
